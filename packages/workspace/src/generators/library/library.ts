@@ -21,9 +21,10 @@ import { join } from 'path';
 import { runTasksInSerial } from '../../utilities/run-tasks-in-serial';
 import {
   getRelativePathToRootTsConfig,
+  getRootTsConfigFileName,
   getRootTsConfigPathInTree,
 } from '../../utilities/typescript';
-import { nxVersion } from '../../utils/versions';
+import { nxVersion, typescriptVersion } from '../../utils/versions';
 import { Schema } from './schema';
 
 export interface NormalizedSchema extends Schema {
@@ -190,17 +191,34 @@ async function addJest(
   });
 }
 
+function addTypescriptDependency(host: Tree) {
+  return addDependenciesToPackageJson(
+    host,
+    {},
+    {
+      typescript: typescriptVersion,
+    }
+  );
+}
+
+function addTsConfigBase(tree: Tree, options: NormalizedSchema) {
+  // add tsconfig.base.json
+  if (!options.skipTsConfig && !getRootTsConfigFileName()) {
+    generateFiles(tree, joinPathFragments(__dirname, './files/root'), '.', {});
+  }
+}
+
 export async function libraryGenerator(tree: Tree, schema: Schema) {
   const options = normalizeOptions(tree, schema);
+  const tasks: GeneratorCallback[] = [addTypescriptDependency(tree)];
 
+  addTsConfigBase(tree, options);
   createFiles(tree, options);
 
   if (!options.skipTsConfig) {
     updateRootTsConfig(tree, options);
   }
   addProject(tree, options);
-
-  const tasks: GeneratorCallback[] = [];
 
   if (options.linter !== 'none') {
     const lintCallback = await addLint(tree, options);
